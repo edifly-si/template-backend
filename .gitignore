@@ -1,0 +1,13 @@
+node_modules
+dist
+.vscode
+*.pem
+package-lock.json
+src/pptx/*
+env.js
+.DS_Store
+menu
+download
+firebase_key
+.env
+params.json

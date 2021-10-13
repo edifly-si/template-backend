@@ -1,0 +1,40 @@
+{
+  "name": "portaltelex",
+  "version": "1.0.0",
+  "description": "Telex Portal",
+  "main": "index.js",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "body-parser": "^1.19.0",
+    "dotenv": "^8.2.0",
+    "dovehash": "0.0.5",
+    "express": "^4.17.1",
+    "express-fileupload": "^1.2.1",
+    "jsonwebtoken": "^8.5.1",
+    "mailparser": "^3.2.0",
+    "moment": "^2.29.1",
+    "moment-timezone": "^0.5.33",
+    "mongoose": "^5.11.15",
+    "mongoose-autopopulate": "^0.12.3",
+    "node-pop3": "^0.6.0",
+    "nodemailer": "^6.6.1",
+    "numeral": "^2.0.6"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.12.13",
+    "@babel/node": "^7.12.13",
+    "@babel/plugin-proposal-optional-chaining": "^7.12.13",
+    "@babel/plugin-syntax-optional-chaining": "^7.8.3",
+    "@babel/preset-env": "^7.12.13",
+    "nodemon": "^2.0.7"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "npm run build && babel-node dist",
+    "debug": "nodemon src --exec babel-node --inspect",
+    "build": "babel src --out-dir dist",
+    "serve": "node dist/index.js"
+  },
+  "author": "",
+  "license": "ISC"
+}
