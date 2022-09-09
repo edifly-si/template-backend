@@ -6,10 +6,10 @@ import {getEnv} from '../library/apps';
 import moment from 'moment';
 import { CreateRandomString } from '../library/utils';
 
-export const AuthMiddleware=(req, res, next)=>{
+export const AuthMiddleware=(decode)=>(req, res, next)=>{
 
     const authHeader=process.env.AUTHHEADER || 'srawung-token';
-    const aToken=req.headers[authHeader] || req.query?.token;
+    const aToken=req.headers[authHeader] || req.query?.token || '';
     // console.log(authHeader, aToken, req.headers);
     if(!aToken)
     { 
