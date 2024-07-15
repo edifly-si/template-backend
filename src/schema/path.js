@@ -10,6 +10,7 @@ let sch = new m.Schema({
     proxy_method:String,
     proxy_to:String,
     proxy_header:{type:Schema.Types.Mixed},
+    resp_type:String, //json, xml, html, text
     timeout:Number,
     createdBy:{type: Schema.Types.ObjectId, autopopulate:{ select: 'username name email' }, ref:'user'},
     createdAt:{type:Date, default:Date.now},

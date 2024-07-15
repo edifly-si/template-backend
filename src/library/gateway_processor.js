@@ -1,5 +1,7 @@
 import APPSCH from '../schema/application';
 import PATSCH from '../schema/path';
+import PACSCH from '../schema/packets';
+import LOGSCH from '../schema/gateway_log';
 import { is_ipaddr_valid } from './utils';
 import {signer, verifyToken} from './gateway-signer';
 import Axios from 'axios';
@@ -10,6 +12,13 @@ import Axios from 'axios';
  */
 const getApplication=async(app_id)=>{
     return await APPSCH.findOne({application_id:app_id}, '', {lean:true});
+}
+
+export const addPacketLog=async(packet, req, resp, code=200, headers={}, ips=[])=>{
+    let ip_address=typeof ips ==='string'?[ips]:ips;
+    const obj={...packet, request_length:`${req}`.length, response_length:`${resp}`.length, resp_code:code, ip_address};
+    const packet_id=await PACSCH.create(obj);
+    await LOGSCH.create({packet_id:packet_id._id, request:req, response:resp, headers});
 }
 
 const checkQry=(url, query)=>{
@@ -54,8 +63,9 @@ const getUrlProxyFinal=(url, query, body)=>{
     return link;
 }
 
-const sendApi=async(application, path, body, query, method)=>{
+const sendApi=async(application, path, body, query, method, req_headers, ips)=>{
     console.log(application, method, path);
+    let start=(new Date()).getTime();
     const selected_path=await PATSCH.findOne({application_id:application._id, method, path}, '', {lean:true});
     if(!selected_path){
         throw new Error("Method not Found (0404)");
@@ -63,17 +73,27 @@ const sendApi=async(application, path, body, query, method)=>{
     const {proxy_method, proxy_to, proxy_header, timeout } = selected_path;
     const url=getUrlProxyFinal(proxy_to, query, body || {});
     console.log({url});
-    const resp=await Axios.request({
-        method:proxy_method, 
-        data:body,
-        headers:{...proxy_header, timeout:timeout || 10000, }, 
-        url
-    });
-    return resp.data;
+    try {
+        const resp=await Axios.request({
+            method:proxy_method, 
+            data:body,
+            headers:{...proxy_header, timeout:timeout || 10000, }, 
+            url,
+            validateStatus:(status)=>true
+        });
+        let stop=(new Date()).getTime();
+        await addPacketLog({start_time:start, stop_time:stop, api_time:stop - start}, JSON.stringify(body), JSON.stringify(resp.data), resp.status, req_headers, ips);
+        return resp.data;        
+    } catch (error) {
+        console.log(error);
+        let stop=(new Date()).getTime();
+        await addPacketLog({start_time:start, stop_time:stop, api_time:stop - start}, JSON.stringify(body), JSON.stringify(error.message), 500, req_headers, ips);        
+    }
 }
 
 export const ProcessRequest=async(app_id, path, query, ips, headers, body, method)=>{
     const application=await getApplication(app_id);
+    let aHeaders=headers;
     if(!application){
         throw new Error("Forbidden Access (0010)")
     }
@@ -81,8 +101,7 @@ export const ProcessRequest=async(app_id, path, query, ips, headers, body, metho
         throw new Error("Forbidden Access (0011)");
     }
     const {secret, key} = application;
-    switch (application.auth) {
-        
+    switch (application.auth) {        
         case 0:{
             if(headers['api-key']!==secret){
                 throw new Error("Forbidden Access (0012)");
@@ -122,5 +141,6 @@ export const ProcessRequest=async(app_id, path, query, ips, headers, body, metho
             throw new Error("Forbidden Access (0013)");
     }
 
-    return await sendApi(application, path, body, query, method);
+    const proxyResp=await sendApi(application, path, body, query, method, aHeaders, ips);
+    return [proxyResp, application.resp_type || 'json'];
 }
