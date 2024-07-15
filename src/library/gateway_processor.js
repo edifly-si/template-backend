@@ -2,6 +2,7 @@ import APPSCH from '../schema/application';
 import PATSCH from '../schema/path';
 import PACSCH from '../schema/packets';
 import LOGSCH from '../schema/gateway_log';
+import BADSCH from '../schema/forbiden_request';
 import { is_ipaddr_valid } from './utils';
 import {signer, verifyToken} from './gateway-signer';
 import Axios from 'axios';
@@ -19,6 +20,13 @@ export const addPacketLog=async(packet, req, resp, code=200, headers={}, ips=[])
     const obj={...packet, request_length:`${req}`.length, response_length:`${resp}`.length, resp_code:code, ip_address};
     const packet_id=await PACSCH.create(obj);
     await LOGSCH.create({packet_id:packet_id._id, request:req, response:resp, headers});
+}
+
+export const addBadLog=async(full_path, req, code, headers, method, ips=[])=>{
+    console.log(req);
+    let ip_address=typeof ips ==='string'?[ips]:(ips || ['']);
+    const obj={full_path, request:typeof req==='string'?req:typeof req === 'undefined'?'':JSON.stringify(req), code, ip_address, headers, method };
+    await BADSCH.create(obj);
 }
 
 const checkQry=(url, query)=>{
@@ -95,15 +103,18 @@ export const ProcessRequest=async(app_id, path, query, ips, headers, body, metho
     const application=await getApplication(app_id);
     let aHeaders=headers;
     if(!application){
+        await addBadLog([app_id, path].join('/'), body, '0010', headers, method, ips);
         throw new Error("Forbidden Access (0010)")
     }
     if(!is_ipaddr_valid(application.whitelist_ip, ips)){
+        await addBadLog([app_id, path].join('/'), body, '0011', headers, method, ips);
         throw new Error("Forbidden Access (0011)");
     }
     const {secret, key} = application;
     switch (application.auth) {        
         case 0:{
             if(headers['api-key']!==secret){
+                await addBadLog([app_id, path].join('/'), body, '0012', headers, method, ips);
                 throw new Error("Forbidden Access (0012)");
             }
             break;
@@ -113,6 +124,7 @@ export const ProcessRequest=async(app_id, path, query, ips, headers, body, metho
             const b64auth = (headers['authorization'] || '').split(' ')[1] || '';
             const [username, password] = Buffer.from(b64auth, 'base64').toString().split(':');
             if(secret!==username || key!==password){
+                await addBadLog([app_id, path].join('/'), body, '0012', headers, method, ips);
                 throw new Error("Forbidden Access (0012)");
             }
             break;
@@ -122,22 +134,26 @@ export const ProcessRequest=async(app_id, path, query, ips, headers, body, metho
             if(path==='auth/login'){
                 const {username, password} = body;             
                 if(secret!==username || password!==key){
-                    throw new Error("Access Denied!");
+                    await addBadLog([app_id, path].join('/'), body, '0001', headers, method, ips);
+                    throw new Error("Access Denied (0001)!");
                 }
                 const {name, application_id, _id} = application;
                 return signer({name, application_id, _id});
             }
             const access_token=headers['access-token'];
             if(!access_token){
+                await addBadLog([app_id, path].join('/'), body, '0013', headers, method, ips);
                 throw new Error("Forbidden Access (0013)");
             }
             if(!verifyToken(access_token)){
+                await addBadLog([app_id, path].join('/'), body, '0012', headers, method, ips);
                 throw new Error("Forbidden Access (0012)");
             }
             break;
         }
         
         default:
+            await addBadLog([app_id, path].join('/'), body, '0013', headers, method, ips);
             throw new Error("Forbidden Access (0013)");
     }
 
