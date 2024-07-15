@@ -33,7 +33,9 @@
     "start": "npm run build && babel-node dist",
     "debug": "nodemon src --exec babel-node --inspect",
     "build": "babel src --out-dir dist",
-    "serve": "node dist/index.js"
+    "serve": "node dist/index.js",
+    "debug-gateway":"nodemon src/gateway.js --exec babel-node --inspect",
+    "gateway":"npm run build && babel-node dist/gateway.js"
   },
   "author": "",
   "license": "ISC"

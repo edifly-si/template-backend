@@ -25,12 +25,31 @@ const parseIps=(ips)=>{
     return ips;
 }
 
-const getIpAddr=(req)=>{
+export const getIpAddr=(req)=>{
     const {headers, ip, hostname, ips}=req;
-    return parseIps(headers['x-forwarded-for']) || parseIps(ips) || ip || hostname;
+    return parseIps(headers['x-forwarded-for']) || parseIps(ips) || ip;
 }
 
 export const createLog = async(user_id, log, req)=>{
     const ip_address=getIpAddr(req);
     return await LOGSCH.create({user_id, ip_address, log});
+}
+
+export const is_ipaddr_valid=(whitelist_ip, ips)=>{
+    if(Array.isArray(whitelist_ip) && whitelist_ip.length>0){
+        let match=false;
+        for (let iii = 0; iii < exists.whitelist_ip.length; iii++) {
+            const ip = exists.whitelist_ip[iii];
+            if(typeof ips==='string'){
+                return ip===ips;
+            }         
+            else if(Array.isArray(ips)){
+                const [exists]=ips.filter((ipaddr)=>ipaddr===ip);
+                match=exists;
+            }
+            if(match)break;
+        }
+        return match;
+    }   
+    return true;
 }
